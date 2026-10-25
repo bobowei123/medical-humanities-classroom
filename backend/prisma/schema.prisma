@@ -1,0 +1,71 @@
+// 医学人文智慧课堂 - 数据模型
+// 数据库：PostgreSQL（云端）
+// 说明：所有课堂、题目、学员作答数据均保存在云端数据库，不使用浏览器本地存储
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// 课堂（一次授课 / 一场培训）
+model Classroom {
+  id           String     @id @default(cuid())
+  code         String     @unique // 6 位课堂码，学员凭此进入
+  title        String // 课堂名称
+  teacherToken String // 教师管理令牌，用于鉴权教师端操作
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  questions    Question[]
+}
+
+/// 题目（单选 / 多选 / 简答 / 关键词）
+model Question {
+  id          String           @id @default(cuid())
+  classroomId String
+  classroom   Classroom        @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  type        String // SINGLE | MULTI | TEXT | KEYWORD
+  title       String // 题干
+  status      String           @default("DRAFT") // DRAFT | OPEN | CLOSED
+  order       Int              @default(0)
+  createdAt   DateTime         @default(now())
+  openedAt    DateTime?
+  closedAt    DateTime?
+  options     QuestionOption[]
+  answers     Answer[]
+
+  @@index([classroomId])
+}
+
+/// 选择题选项
+model QuestionOption {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      String // A / B / C / D
+  content    String // 选项内容
+  order      Int      @default(0)
+
+  @@index([questionId])
+}
+
+/// 学员作答记录（免注册，participantId 由浏览器生成并保存在本地）
+model Answer {
+  id            String   @id @default(cuid())
+  questionId    String
+  question      Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  classroomId   String
+  participantId String // 学员匿名标识
+  nickname      String   @default("") // 学员可选填写的昵称
+  optionIds     String   @default("[]") // JSON 数组：选中选项 id
+  textContent   String   @default("") // 简答原文
+  keywords      String   @default("[]") // JSON 数组：关键词
+  createdAt     DateTime @default(now())
+
+  @@unique([questionId, participantId]) // 同一学员同一题只保留一份作答
+  @@index([questionId])
+  @@index([classroomId])
+}
