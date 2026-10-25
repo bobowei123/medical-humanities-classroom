@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   ArrowLeft,
@@ -19,6 +19,8 @@ import ResultPanel from '@/components/ResultPanel'
 import QRCodePanel from '@/components/QRCodePanel'
 import {
   api,
+  saveClassroom,
+  setTeacherToken,
   QUESTION_TYPE_LABEL,
   STATUS_LABEL,
   type ClassroomDTO,
@@ -27,6 +29,7 @@ import {
 
 export default function TeacherConsole() {
   const { classroomId = '' } = useParams()
+  const location = useLocation()
   const [classroom, setClassroom] = useState<ClassroomDTO | null>(null)
   const [stats, setStats] = useState<StatsDTO | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -44,6 +47,23 @@ export default function TeacherConsole() {
       throw err
     }
   }, [classroomId])
+
+  // 从「管理链接」中读取教师令牌：在其他设备打开链接后可继续管理该课堂
+  useEffect(() => {
+    const match = location.hash.match(/[#&]t=([^&]+)/)
+    if (match && classroomId) {
+      setTeacherToken(classroomId, match[1])
+      // 立即从地址栏中抹掉令牌，避免被旁人看到或存进浏览历史
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
+  }, [location.hash, classroomId])
+
+  // 打开过的课堂会自动存入本机列表，方便下次直接从教师端首页进入
+  useEffect(() => {
+    if (classroom) {
+      saveClassroom({ id: classroom.id, code: classroom.code, title: classroom.title })
+    }
+  }, [classroom])
 
   // 每 2 秒拉取一次课堂数据，保证提交人数、题目状态实时更新
   useEffect(() => {

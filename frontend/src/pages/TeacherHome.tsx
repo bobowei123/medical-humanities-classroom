@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, GraduationCap, Loader2, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, GraduationCap, Link2, Loader2, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input, Label } from '@/components/ui/input'
-import { api, listSavedClassrooms, removeSavedClassroom, type SavedClassroom } from '@/lib/api'
+import {
+  api,
+  getTeacherToken,
+  listSavedClassrooms,
+  removeSavedClassroom,
+  type SavedClassroom,
+} from '@/lib/api'
 
 export default function TeacherHome() {
   const navigate = useNavigate()
@@ -45,6 +51,22 @@ export default function TeacherHome() {
     removeSavedClassroom(item.id)
     setSaved(listSavedClassrooms())
     toast.success('已从本机记录中移除')
+  }
+
+  /** 生成可在其他设备直接打开的管理链接（内含教师令牌） */
+  const handleCopyLink = async (item: SavedClassroom) => {
+    const token = getTeacherToken(item.id)
+    if (!token) {
+      toast.error('本机未保存该课堂的管理凭证，请用原电脑复制')
+      return
+    }
+    const link = `${window.location.origin}/teacher/${item.id}#t=${token}`
+    try {
+      await navigator.clipboard.writeText(link)
+      toast.success('管理链接已复制，在另一台设备打开即可继续管理')
+    } catch {
+      toast.error('复制失败，请手动复制：' + link)
+    }
   }
 
   return (
@@ -115,14 +137,24 @@ export default function TeacherHome() {
                       课堂码 <span className="font-mono font-semibold text-accent">{item.code}</span>
                     </div>
                   </Link>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(item)}
-                    title="移除记录"
-                  >
-                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => void handleCopyLink(item)}
+                      title="复制管理链接，可在其他电脑打开"
+                    >
+                      <Link2 className="h-4 w-4 text-accent" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(item)}
+                      title="移除记录"
+                    >
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </CardContent>
